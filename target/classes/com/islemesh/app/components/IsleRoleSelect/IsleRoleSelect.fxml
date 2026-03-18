@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.Button?>
+<?import javafx.geometry.Insets?>
+
+<VBox alignment="CENTER" spacing="20"
+      styleClass="role-select"
+      xmlns:fx="http://javafx.com/fxml"
+      fx:controller="com.islemesh.app.components.IsleRoleSelect.IsleRoleSelectController">
+
+    <padding>
+        <Insets top="40" right="40" bottom="40" left="40"/>
+    </padding>
+
+    <Label text="Isle Mesh" styleClass="title"/>
+    <Label text="What role will this machine have?" styleClass="subtitle"/>
+
+    <Button fx:id="coreButton"
+            text="Set up Isle (Core)"
+            styleClass="btn, btn-primary"
+            prefWidth="220" prefHeight="45"
+            onAction="#onSetupCore"/>
+
+    <Button fx:id="connectButton"
+            text="Connect to Isle"
+            styleClass="btn, btn-success"
+            prefWidth="220" prefHeight="45"
+            onAction="#onConnectToIsle"/>
+</VBox>

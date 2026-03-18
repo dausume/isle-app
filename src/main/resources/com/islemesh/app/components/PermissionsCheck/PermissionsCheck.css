@@ -1,0 +1,9 @@
+.permissions-check {
+    -fx-background-color: #ecf0f1;
+}
+
+.status-text {
+    -fx-font-size: 14px;
+    -fx-text-fill: #555;
+    -fx-padding: 0 20 0 20;
+}
