@@ -1,9 +1,0 @@
-Package: isle-app
-Version: 0.1.0
-Section: utils
-Priority: optional
-Architecture: all
-Depends: openjdk-21-jre, libjavafx-jni
-Maintainer: Isle Mesh <isle-mesh@localhost>
-Description: Isle Mesh Desktop Application
- A JavaFX desktop application for setting up and connecting to Isle Mesh networks.
