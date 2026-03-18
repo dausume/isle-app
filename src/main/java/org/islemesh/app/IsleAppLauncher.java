@@ -1,4 +1,4 @@
-package com.islemesh.app;
+package org.islemesh.app;
 
 /**
  * Non-JavaFX launcher class needed for fat JAR packaging.

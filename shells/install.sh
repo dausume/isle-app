@@ -29,4 +29,7 @@ sudo chmod 755                                           /usr/bin/isle-app
 sudo cp    "$BUILD_DIR/usr/share/applications/isle-app.desktop" \
            /usr/share/applications/isle-app.desktop
 
+sudo cp    "$BUILD_DIR/usr/share/polkit-1/actions/org.islemesh.permissions.policy" \
+           /usr/share/polkit-1/actions/org.islemesh.permissions.policy
+
 echo "==> Installed. Run with: isle-app"

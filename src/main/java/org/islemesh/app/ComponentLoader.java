@@ -1,4 +1,4 @@
-package com.islemesh.app;
+package org.islemesh.app;
 
 import javafx.fxml.FXMLLoader;
 import java.util.function.Consumer;

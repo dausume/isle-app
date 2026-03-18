@@ -1,0 +1,9 @@
+.permissions-check {
+    -fx-background-color: #ecf0f1;
+}
+
+.permissions-list {
+    -fx-background-color: white;
+    -fx-background-radius: 8;
+    -fx-padding: 12;
+}

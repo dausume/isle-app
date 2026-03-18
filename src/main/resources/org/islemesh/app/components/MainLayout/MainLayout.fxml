@@ -5,4 +5,4 @@
 <StackPane fx:id="contentArea"
            styleClass="main-layout"
            xmlns:fx="http://javafx.com/fxml"
-           fx:controller="com.islemesh.app.components.MainLayout.MainLayoutController"/>
+           fx:controller="org.islemesh.app.components.MainLayout.MainLayoutController"/>

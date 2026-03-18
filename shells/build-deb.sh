@@ -29,6 +29,7 @@ mkdir -p "$DEB_STAGE/DEBIAN"
 mkdir -p "$DEB_STAGE/usr/bin"
 mkdir -p "$DEB_STAGE/usr/share/isle-app"
 mkdir -p "$DEB_STAGE/usr/share/applications"
+mkdir -p "$DEB_STAGE/usr/share/polkit-1/actions"
 
 cp debian/DEBIAN/control              "$DEB_STAGE/DEBIAN/"
 cp debian/usr/bin/isle-app            "$DEB_STAGE/usr/bin/"
@@ -36,6 +37,8 @@ chmod 755                             "$DEB_STAGE/usr/bin/isle-app"
 cp debian/usr/share/applications/isle-app.desktop \
                                       "$DEB_STAGE/usr/share/applications/"
 cp target/isle-app-${VERSION}.jar     "$DEB_STAGE/usr/share/isle-app/isle-app.jar"
+cp debian/usr/share/polkit-1/actions/org.islemesh.permissions.policy \
+                                      "$DEB_STAGE/usr/share/polkit-1/actions/"
 
 # ── Build .deb ──
 echo "==> Building .deb..."

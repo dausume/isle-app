@@ -1,0 +1,111 @@
+/* ── Typography ── */
+
+.title {
+    -fx-font-size: 28px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #2c3e50;
+}
+
+.subtitle {
+    -fx-font-size: 14px;
+    -fx-text-fill: #7f8c8d;
+}
+
+/* ── Buttons ── */
+
+.btn {
+    -fx-font-size: 16px;
+    -fx-text-fill: white;
+    -fx-background-radius: 8;
+    -fx-cursor: hand;
+}
+
+.btn-primary {
+    -fx-background-color: #2980b9;
+}
+
+.btn-primary:hover {
+    -fx-background-color: #3498db;
+}
+
+.btn-secondary {
+    -fx-background-color: #95a5a6;
+}
+
+.btn-secondary:hover {
+    -fx-background-color: #bdc3c7;
+}
+
+.btn-success {
+    -fx-background-color: #27ae60;
+}
+
+.btn-success:hover {
+    -fx-background-color: #2ecc71;
+}
+
+.btn-active {
+    -fx-border-color: #2c3e50;
+    -fx-border-width: 3;
+    -fx-border-radius: 6;
+}
+
+/* ── Status ── */
+
+.status-text {
+    -fx-font-size: 14px;
+    -fx-text-fill: #555;
+}
+
+/* ── Role Badge ── */
+
+.role-badge {
+    -fx-font-size: 15px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #2980b9;
+    -fx-padding: 4 12 4 12;
+    -fx-background-color: #d6eaf8;
+    -fx-background-radius: 12;
+}
+
+/* ── Permission Rows ── */
+
+.permission-row {
+    -fx-alignment: CENTER_LEFT;
+    -fx-padding: 6 8 6 8;
+}
+
+.permission-icon {
+    -fx-font-size: 16px;
+    -fx-min-width: 24;
+}
+
+.permission-name {
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #2c3e50;
+    -fx-min-width: 80;
+}
+
+.permission-desc {
+    -fx-font-size: 12px;
+    -fx-text-fill: #7f8c8d;
+}
+
+.permission-icon-ok {
+    -fx-text-fill: #27ae60;
+}
+
+.permission-icon-fail {
+    -fx-text-fill: #e74c3c;
+}
+
+.permission-icon-warn {
+    -fx-text-fill: #f39c12;
+}
+
+/* ── Layouts ── */
+
+.main-layout {
+    -fx-background-color: #ecf0f1;
+}
