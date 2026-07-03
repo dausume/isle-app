@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Separator?>
+<?import javafx.scene.control.ScrollPane?>
+<?import javafx.geometry.Insets?>
+
+<VBox spacing="0"
+      styleClass="home-page"
+      xmlns:fx="http://javafx.com/fxml"
+      fx:controller="org.islemesh.app.components.HomePage.HomePageController">
+
+    <!-- Mode Banner -->
+    <HBox alignment="CENTER" styleClass="mode-banner">
+        <padding>
+            <Insets top="12" right="20" bottom="12" left="20"/>
+        </padding>
+        <Label fx:id="modeBanner"
+               text="..."
+               styleClass="banner-text"/>
+    </HBox>
+
+    <!-- Scrollable Content -->
+    <ScrollPane fitToWidth="true" VBox.vgrow="ALWAYS"
+                style="-fx-background-color: transparent;">
+        <VBox spacing="14">
+            <padding>
+                <Insets top="20" right="30" bottom="10" left="30"/>
+            </padding>
+
+            <!-- Component Status -->
+            <Label text="Components" styleClass="section-header"/>
+
+            <VBox fx:id="componentsList" spacing="6"
+                  styleClass="status-card">
+                <padding>
+                    <Insets top="8" right="12" bottom="8" left="12"/>
+                </padding>
+            </VBox>
+
+            <!-- Action: Isle Create -->
+            <VBox fx:id="createSection" spacing="10" alignment="CENTER">
+                <Label fx:id="createStatusLabel"
+                       text=""
+                       styleClass="status-text"
+                       wrapText="true"
+                       visible="false" managed="false"/>
+
+                <Button fx:id="createButton"
+                        text="Isle Create"
+                        styleClass="btn, btn-primary"
+                        prefWidth="200" prefHeight="42"
+                        onAction="#onIsleCreate"/>
+            </VBox>
+
+            <!-- Action: Join a detected isle (appears on a device that isn't part of one) -->
+            <VBox fx:id="joinIsleSection" spacing="10" alignment="CENTER" visible="false" managed="false">
+                <Label fx:id="joinIsleLabel"
+                       text=""
+                       styleClass="status-text"
+                       wrapText="true"/>
+                <Button fx:id="joinIsleButton"
+                        text="Join this Isle"
+                        styleClass="btn, btn-primary"
+                        prefWidth="200" prefHeight="42"
+                        onAction="#onJoinIsle"/>
+            </VBox>
+
+            <!-- Console output during create -->
+            <VBox fx:id="consoleSection" visible="false" managed="false" spacing="4">
+                <Label text="Progress" styleClass="section-header"/>
+                <ScrollPane fx:id="consoleScroll"
+                            prefHeight="160" fitToWidth="true"
+                            style="-fx-background-color: #2c3e50;">
+                    <Label fx:id="consoleOutput"
+                           text=""
+                           styleClass="console-text"
+                           wrapText="true"/>
+                </ScrollPane>
+            </VBox>
+
+            <Separator/>
+
+            <!-- Navigation -->
+            <HBox spacing="10" alignment="CENTER">
+                <Button text="View Apps"
+                        styleClass="btn, btn-success"
+                        prefWidth="140" prefHeight="38"
+                        onAction="#onViewApps"/>
+
+                <Button text="Diagnostics"
+                        styleClass="btn, btn-success"
+                        prefWidth="140" prefHeight="38"
+                        onAction="#onDiagnostics"/>
+            </HBox>
+
+            <HBox spacing="10" alignment="CENTER">
+                <Button text="Discover Devices"
+                        styleClass="btn, btn-primary"
+                        prefWidth="160" prefHeight="38"
+                        onAction="#onDiscoverDevices"/>
+
+                <Button text="Network Ports"
+                        styleClass="btn, btn-primary"
+                        prefWidth="160" prefHeight="38"
+                        onAction="#onNetworkPorts"/>
+            </HBox>
+
+            <HBox spacing="10" alignment="CENTER">
+                <Button text="ISP Visibility"
+                        styleClass="btn, btn-secondary"
+                        prefWidth="160" prefHeight="38"
+                        onAction="#onSecurity"/>
+            </HBox>
+
+            <Separator/>
+
+            <!-- Options -->
+            <Label text="Options" styleClass="section-header"/>
+
+            <HBox spacing="10" alignment="CENTER">
+                <Button text="Manage Permissions"
+                        styleClass="btn, btn-secondary"
+                        prefWidth="160" prefHeight="34"
+                        onAction="#onManagePermissions"/>
+
+                <Button text="Change Role"
+                        styleClass="btn, btn-secondary"
+                        prefWidth="120" prefHeight="34"
+                        onAction="#onChangeRole"/>
+
+                <Button fx:id="refreshButton"
+                        text="Refresh"
+                        styleClass="btn, btn-secondary"
+                        prefWidth="90" prefHeight="34"
+                        onAction="#onRefresh"/>
+            </HBox>
+
+            <HBox spacing="10" alignment="CENTER">
+                <Button text="Create USB Installer"
+                        styleClass="btn, btn-secondary"
+                        prefWidth="200" prefHeight="34"
+                        onAction="#onCreateUsb"/>
+            </HBox>
+
+            <HBox spacing="10" alignment="CENTER">
+                <Button text="Wipe Island"
+                        styleClass="btn, btn-danger"
+                        prefWidth="160" prefHeight="34"
+                        onAction="#onWipeIsland"/>
+
+                <Button text="Uninstall App &amp; CLI"
+                        styleClass="btn, btn-danger"
+                        prefWidth="160" prefHeight="34"
+                        onAction="#onUninstallApp"/>
+            </HBox>
+        </VBox>
+    </ScrollPane>
+</VBox>

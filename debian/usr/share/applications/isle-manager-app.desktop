@@ -1,0 +1,7 @@
+[Desktop Entry]
+Name=Isle Manager
+Comment=Manage Isle Mesh networks
+Exec=isle-manager-app
+Type=Application
+Categories=Utility;Network;
+Terminal=false

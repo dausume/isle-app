@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Separator?>
+<?import javafx.scene.control.ScrollPane?>
+<?import javafx.geometry.Insets?>
+
+<VBox spacing="0"
+      styleClass="home-page"
+      xmlns:fx="http://javafx.com/fxml"
+      fx:controller="org.islemesh.app.components.SecurityView.SecurityViewController">
+
+    <!-- Header -->
+    <HBox alignment="CENTER" styleClass="mode-banner">
+        <padding>
+            <Insets top="12" right="20" bottom="12" left="20"/>
+        </padding>
+        <Label text="ISP Visibility"
+               styleClass="banner-text"/>
+    </HBox>
+
+    <!-- Scrollable Content -->
+    <ScrollPane fitToWidth="true" VBox.vgrow="ALWAYS"
+                style="-fx-background-color: transparent;">
+        <VBox spacing="14">
+            <padding>
+                <Insets top="20" right="30" bottom="10" left="30"/>
+            </padding>
+
+            <!-- ISP Info -->
+            <Label fx:id="ispInfoLabel"
+                   text=""
+                   styleClass="status-text"
+                   wrapText="true"/>
+
+            <!-- Network Exposure Section -->
+            <Label text="Network Exposure" styleClass="section-header"/>
+
+            <VBox fx:id="exposureList" spacing="6"
+                  styleClass="status-card">
+                <padding>
+                    <Insets top="8" right="12" bottom="8" left="12"/>
+                </padding>
+            </VBox>
+
+            <Separator/>
+
+            <!-- Router Isolation Section -->
+            <Label text="Router Isolation" styleClass="section-header"/>
+
+            <VBox fx:id="routerList" spacing="6"
+                  styleClass="status-card">
+                <padding>
+                    <Insets top="8" right="12" bottom="8" left="12"/>
+                </padding>
+            </VBox>
+
+            <Separator/>
+
+            <!-- Configuration Section -->
+            <Label text="Configuration" styleClass="section-header"/>
+
+            <VBox fx:id="configList" spacing="6"
+                  styleClass="status-card">
+                <padding>
+                    <Insets top="8" right="12" bottom="8" left="12"/>
+                </padding>
+            </VBox>
+
+            <Separator/>
+
+            <!-- Summary -->
+            <HBox alignment="CENTER" spacing="10">
+                <Label fx:id="summaryLabel"
+                       text=""
+                       styleClass="status-text"
+                       wrapText="true"/>
+            </HBox>
+
+            <!-- Actions -->
+            <HBox spacing="10" alignment="CENTER">
+                <Button fx:id="scanButton"
+                        text="Scan"
+                        styleClass="btn, btn-primary"
+                        prefWidth="100" prefHeight="38"
+                        onAction="#onScan"/>
+
+                <Button fx:id="hardenButton"
+                        text="Harden"
+                        styleClass="btn, btn-success"
+                        prefWidth="100" prefHeight="38"
+                        onAction="#onHarden"/>
+
+                <Button text="Back"
+                        styleClass="btn, btn-secondary"
+                        prefWidth="100" prefHeight="38"
+                        onAction="#onBack"/>
+            </HBox>
+
+            <!-- Console for harden output -->
+            <VBox fx:id="consoleSection" visible="false" managed="false" spacing="4">
+                <Label text="Output" styleClass="section-header"/>
+                <ScrollPane fx:id="consoleScroll"
+                            prefHeight="120" fitToWidth="true"
+                            style="-fx-background-color: #2c3e50;">
+                    <Label fx:id="consoleOutput"
+                           text=""
+                           styleClass="console-text"
+                           wrapText="true"/>
+                </ScrollPane>
+            </VBox>
+        </VBox>
+    </ScrollPane>
+</VBox>

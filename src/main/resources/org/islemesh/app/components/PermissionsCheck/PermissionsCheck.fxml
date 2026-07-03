@@ -45,6 +45,14 @@
             prefWidth="220" prefHeight="45"
             onAction="#onGrantPermissions"/>
 
+    <Button fx:id="revokeAllButton"
+            text="Revoke All"
+            styleClass="btn, btn-danger"
+            prefWidth="220" prefHeight="38"
+            visible="false"
+            managed="false"
+            onAction="#onRevokeAll"/>
+
     <Button fx:id="backButton"
             text="Back"
             styleClass="btn, btn-secondary"

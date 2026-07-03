@@ -5,7 +5,7 @@ import javafx.scene.Scene;
 import javafx.scene.Parent;
 import javafx.stage.Stage;
 
-public class IsleApp extends Application {
+public class IsleManagerApp extends Application {
 
     @Override
     public void start(Stage primaryStage) {
@@ -13,12 +13,12 @@ public class IsleApp extends Application {
             "/org/islemesh/app/components/MainLayout/MainLayout.fxml"
         );
 
-        Scene scene = new Scene(root, 480, 520);
+        Scene scene = new Scene(root, 520, 680);
         scene.getStylesheets().add(
             getClass().getResource("/org/islemesh/app/styles/global.css").toExternalForm()
         );
 
-        primaryStage.setTitle("Isle Mesh");
+        primaryStage.setTitle("Isle Mesh Manager");
         primaryStage.setScene(scene);
         primaryStage.setResizable(false);
         primaryStage.show();

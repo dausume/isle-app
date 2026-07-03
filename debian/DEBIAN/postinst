@@ -1,0 +1,32 @@
+#!/bin/sh
+# Post-install: put the bundled isle CLI on PATH at the ONE canonical location.
+# (Keep these paths in sync with isle-cli/shells/cli-paths.sh.)
+set -e
+
+ISLE_CLI_LINK=/usr/local/bin/isle          # canonical PATH entry (single source of truth)
+ISLE_CLI_BUNDLE=/usr/share/isle-mesh/isle-cli/index.js
+ISLE_CLI_LEGACY=/usr/bin/isle              # older location to clean up
+
+# Remove any legacy duplicate so there's never two `isle` on PATH.
+[ -e "$ISLE_CLI_LEGACY" ] || [ -L "$ISLE_CLI_LEGACY" ] && rm -f "$ISLE_CLI_LEGACY" || true
+
+if [ -f "$ISLE_CLI_BUNDLE" ]; then
+    chmod 755 "$ISLE_CLI_BUNDLE" 2>/dev/null || true
+    cur=$(readlink -f "$ISLE_CLI_LINK" 2>/dev/null || true)
+    case "$cur" in
+        ""|/usr/share/isle-mesh/*)
+            # Not installed, or already ours → point at the bundle.
+            ln -sf "$ISLE_CLI_BUNDLE" "$ISLE_CLI_LINK"
+            ;;
+        *)
+            # A developer install (npm link / repo checkout) holds the canonical
+            # link — don't clobber it; the dev's live CLI stays in charge.
+            echo "isle already installed at $ISLE_CLI_LINK ($cur) — leaving it in place."
+            ;;
+    esac
+fi
+
+# Ensure bundled shell scripts are executable.
+find /usr/share/isle-mesh -name '*.sh' -exec chmod 755 {} + 2>/dev/null || true
+
+exit 0

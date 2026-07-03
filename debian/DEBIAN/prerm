@@ -1,0 +1,16 @@
+#!/bin/sh
+# Pre-remove: drop the canonical isle link, but only if it points at OUR bundle
+# (never remove a developer's npm-link / repo checkout).
+# (Keep paths in sync with isle-cli/shells/cli-paths.sh.)
+set -e
+
+ISLE_CLI_LINK=/usr/local/bin/isle
+
+if [ -L "$ISLE_CLI_LINK" ]; then
+    target=$(readlink -f "$ISLE_CLI_LINK" 2>/dev/null || true)
+    case "$target" in
+        /usr/share/isle-mesh/*) rm -f "$ISLE_CLI_LINK" ;;
+    esac
+fi
+
+exit 0

@@ -1,5 +1,6 @@
 package org.islemesh.app.components.PermissionsCheck;
 
+import org.islemesh.app.IsleConfig;
 import javafx.fxml.FXML;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
@@ -10,9 +11,6 @@ import javafx.application.Platform;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 
 public class PermissionsCheckController {
@@ -30,49 +28,46 @@ public class PermissionsCheckController {
     private Button grantButton;
 
     @FXML
+    private Button revokeAllButton;
+
+    @FXML
     private Button backButton;
 
-    private String role; // "core" or "connect"
+    private String role;
     private Runnable onBack;
+    private Runnable onAllGranted;
+    private boolean manageMode;
 
-    // group -> "yes" | "no" | "missing"
-    private final Map<String, String> permissionStatus = new LinkedHashMap<>();
+    private Map<String, String> permissionStatus;
 
-    public void init(String role, Runnable onBack) {
+    /**
+     * @param role          "core" or "remote"
+     * @param onBack        navigate back (to RoleSelect or HomePage)
+     * @param onAllGranted  auto-navigate when all granted (null to stay on page)
+     * @param manageMode    true = show revoke options, false = setup flow
+     */
+    public void init(String role, Runnable onBack, Runnable onAllGranted, boolean manageMode) {
         this.role = role;
         this.onBack = onBack;
+        this.onAllGranted = onAllGranted;
+        this.manageMode = manageMode;
 
-        System.out.println("[PermissionsCheck] init called with role: " + role);
-        System.out.println("[PermissionsCheck] permissionsList is null? " + (permissionsList == null));
-        System.out.println("[PermissionsCheck] grantButton is null? " + (grantButton == null));
+        System.out.println("[PermissionsCheck] init role=" + role + " manageMode=" + manageMode);
 
-        roleLabel.setText("Role: " + ("core".equals(role) ? "Isle Core" : "Isle Connect"));
+        roleLabel.setText("Role: " + IsleConfig.roleDisplayName(role));
+
+        if (manageMode) {
+            backButton.setText("Back to Home");
+        }
 
         checkPermissions();
     }
 
     private void checkPermissions() {
-        permissionStatus.clear();
-
         System.out.println("[PermissionsCheck] Checking permissions for role: " + role);
 
-        // Try isle permissions check first (authoritative, reads /etc/group)
-        String checkRole = "core".equals(role) ? "core" : "connect";
-        boolean gotResult = runIsleCheck(checkRole);
+        permissionStatus = IsleConfig.checkPermissions(role);
 
-        // Fallback: check /etc/group directly
-        if (!gotResult) {
-            System.out.println("[PermissionsCheck] isle CLI not found, falling back to /etc/group");
-            List<String> groups = "core".equals(role)
-                ? List.of("isle-mesh", "docker", "libvirt", "kvm")
-                : List.of("isle-mesh", "docker");
-
-            for (String group : groups) {
-                permissionStatus.put(group, checkGroupInEtcGroup(group));
-            }
-        }
-
-        // Log results
         for (var entry : permissionStatus.entrySet()) {
             System.out.println("[PermissionsCheck]   " + entry.getKey() + " = " + entry.getValue());
         }
@@ -80,82 +75,29 @@ public class PermissionsCheckController {
         renderPermissionRows();
 
         boolean allGranted = permissionStatus.values().stream().allMatch("yes"::equals);
+        boolean anyGranted = permissionStatus.values().stream().anyMatch("yes"::equals);
+
+        // Grant button: show if anything is missing
         grantButton.setVisible(!allGranted);
         grantButton.setManaged(!allGranted);
 
-        if (allGranted) {
-            System.out.println("[PermissionsCheck] All permissions granted!");
-            statusLabel.setText("All permissions granted. You may need to log out and back in for group changes to take effect.");
+        // Revoke all button: show in manage mode if any permissions are granted
+        revokeAllButton.setVisible(manageMode && anyGranted);
+        revokeAllButton.setManaged(manageMode && anyGranted);
+
+        if (allGranted && !manageMode && onAllGranted != null) {
+            System.out.println("[PermissionsCheck] All permissions granted — navigating forward");
+            statusLabel.setText("All permissions granted.");
+            statusLabel.setVisible(true);
+            statusLabel.setManaged(true);
+            onAllGranted.run();
+        } else if (allGranted) {
+            statusLabel.setText("All permissions granted.");
             statusLabel.setVisible(true);
             statusLabel.setManaged(true);
         } else {
-            System.out.println("[PermissionsCheck] Some permissions missing — showing grant button");
             statusLabel.setVisible(false);
             statusLabel.setManaged(false);
-        }
-    }
-
-    /**
-     * Run `isle permissions check <role>` and parse output lines like:
-     *   isle-mesh=yes
-     *   docker=no
-     *   libvirt=missing
-     */
-    private boolean runIsleCheck(String checkRole) {
-        try {
-            String islePath = findIsleCli();
-            if (islePath == null) return false;
-
-            String username = System.getProperty("user.name");
-            ProcessBuilder pb = new ProcessBuilder(islePath, "permissions", "check", checkRole, username);
-            pb.redirectErrorStream(true);
-            Process process = pb.start();
-
-            try (var reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    line = line.trim();
-                    int eq = line.indexOf('=');
-                    if (eq > 0) {
-                        String group = line.substring(0, eq);
-                        String status = line.substring(eq + 1);
-                        permissionStatus.put(group, status);
-                    }
-                }
-            }
-
-            process.waitFor();
-            return !permissionStatus.isEmpty();
-        } catch (Exception e) {
-            return false;
-        }
-    }
-
-    /**
-     * Fallback: read /etc/group to check if user is in a group.
-     * This reflects system state, not just the current session.
-     */
-    private String checkGroupInEtcGroup(String group) {
-        try {
-            String username = System.getProperty("user.name");
-            List<String> lines = Files.readAllLines(Path.of("/etc/group"));
-            for (String line : lines) {
-                // Format: group:x:gid:user1,user2,...
-                String[] parts = line.split(":");
-                if (parts.length >= 1 && parts[0].equals(group)) {
-                    if (parts.length >= 4) {
-                        for (String member : parts[3].split(",")) {
-                            if (member.trim().equals(username)) {
-                                return "yes";
-                            }
-                        }
-                    }
-                    return "no"; // group exists but user not in it
-                }
-            }
-            return "missing"; // group doesn't exist
-        } catch (Exception e) {
-            return "missing";
         }
     }
 
@@ -188,7 +130,7 @@ public class PermissionsCheckController {
                     icon.setText("[--]");
                     icon.getStyleClass().add("permission-icon-warn");
                     break;
-                default: // "no"
+                default:
                     icon.setText("[  ]");
                     icon.getStyleClass().add("permission-icon-fail");
                     break;
@@ -205,6 +147,15 @@ public class PermissionsCheckController {
             desc.getStyleClass().add("permission-desc");
 
             row.getChildren().addAll(icon, name, desc);
+
+            // Per-group revoke button in manage mode
+            if (manageMode && "yes".equals(status)) {
+                Button revokeBtn = new Button("Revoke");
+                revokeBtn.getStyleClass().addAll("btn-small", "btn-danger");
+                revokeBtn.setOnAction(e -> revokeGroup(group));
+                row.getChildren().add(revokeBtn);
+            }
+
             permissionsList.getChildren().add(row);
         }
     }
@@ -216,14 +167,41 @@ public class PermissionsCheckController {
 
         Thread thread = new Thread(() -> {
             String subcommand = "core".equals(role) ? "setup-core" : "setup-connect";
-            boolean success = runPkexec(subcommand);
+            runPkexec("permissions", subcommand);
 
             Platform.runLater(() -> {
                 grantButton.setText("Grant Permissions");
                 grantButton.setDisable(false);
-                // Re-check after grant attempt regardless of success
                 checkPermissions();
             });
+        });
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    @FXML
+    private void onRevokeAll() {
+        revokeAllButton.setDisable(true);
+        revokeAllButton.setText("Revoking...");
+
+        Thread thread = new Thread(() -> {
+            runPkexec("permissions", "revoke", "all");
+
+            Platform.runLater(() -> {
+                revokeAllButton.setText("Revoke All");
+                revokeAllButton.setDisable(false);
+                checkPermissions();
+            });
+        });
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    private void revokeGroup(String group) {
+        Thread thread = new Thread(() -> {
+            runPkexec("permissions", "revoke", group);
+
+            Platform.runLater(this::checkPermissions);
         });
         thread.setDaemon(true);
         thread.start();
@@ -236,26 +214,34 @@ public class PermissionsCheckController {
         }
     }
 
-    private boolean runPkexec(String subcommand) {
+    private boolean runPkexec(String... args) {
         try {
-            String islePath = findIsleCli();
+            String islePath = IsleConfig.findIsleCli();
             if (islePath == null) {
                 System.err.println("[PermissionsCheck] Could not find isle CLI");
                 return false;
             }
 
-            System.out.println("[PermissionsCheck] Running: pkexec " + islePath + " permissions " + subcommand);
-
-            // pkexec doesn't preserve PATH/env, so call the permissions script directly
-            // via bash instead of going through the node.js isle CLI
             String scriptPath = findPermissionsScript(islePath);
 
             ProcessBuilder pb;
-            if (scriptPath != null) {
-                System.out.println("[PermissionsCheck] Using direct script: " + scriptPath);
-                pb = new ProcessBuilder("pkexec", "bash", scriptPath, subcommand);
+            if (scriptPath != null && "permissions".equals(args[0])) {
+                // Bypass Node.js wrapper — call bash script directly
+                // cmd = [pkexec, bash, scriptPath, arg1, arg2, ...]
+                int extraArgs = args.length - 1; // args after "permissions"
+                String[] cmd = new String[3 + extraArgs];
+                cmd[0] = "pkexec";
+                cmd[1] = "bash";
+                cmd[2] = scriptPath;
+                System.arraycopy(args, 1, cmd, 3, extraArgs);
+                System.out.println("[PermissionsCheck] Running: " + String.join(" ", cmd));
+                pb = new ProcessBuilder(cmd);
             } else {
-                pb = new ProcessBuilder("pkexec", islePath, "permissions", subcommand);
+                String[] cmd = new String[args.length + 2];
+                cmd[0] = "pkexec";
+                cmd[1] = islePath;
+                System.arraycopy(args, 0, cmd, 2, args.length);
+                pb = new ProcessBuilder(cmd);
             }
             pb.inheritIO();
             Process process = pb.start();
@@ -268,21 +254,13 @@ public class PermissionsCheckController {
         }
     }
 
-    /**
-     * Resolve the permissions.sh script path from the isle CLI location.
-     * This lets us bypass the Node.js wrapper when running via pkexec.
-     */
     private String findPermissionsScript(String islePath) {
         try {
-            // isle CLI is typically at <project>/isle-cli/index.js or a symlink to it
-            // permissions.sh is at <project>/isle-cli/scripts/permissions.sh
             java.nio.file.Path isleRealPath = java.nio.file.Path.of(islePath).toRealPath();
-            // Try relative to isle-cli
             java.nio.file.Path candidate = isleRealPath.getParent().resolve("scripts/permissions.sh");
             if (Files.isRegularFile(candidate)) {
                 return candidate.toString();
             }
-            // If isle is a wrapper, try common project locations
             String home = System.getProperty("user.home");
             java.nio.file.Path projectCandidate = java.nio.file.Path.of(home, "Isle-Mesh/isle-cli/scripts/permissions.sh");
             if (Files.isRegularFile(projectCandidate)) {
@@ -290,36 +268,6 @@ public class PermissionsCheckController {
             }
         } catch (Exception e) {
             System.err.println("[PermissionsCheck] Could not resolve permissions.sh: " + e.getMessage());
-        }
-        return null;
-    }
-
-    private String findIsleCli() {
-        // Try 'which' first
-        try {
-            Process p = new ProcessBuilder("which", "isle")
-                .redirectErrorStream(true)
-                .start();
-            String path;
-            try (var reader = new BufferedReader(new InputStreamReader(p.getInputStream()))) {
-                path = reader.readLine();
-            }
-            if (p.waitFor() == 0 && path != null && !path.isEmpty()) {
-                return path.trim();
-            }
-        } catch (Exception e) {
-            // Fall through
-        }
-
-        // Check common locations
-        String[] candidates = {
-            "/usr/local/bin/isle",
-            "/usr/bin/isle"
-        };
-        for (String candidate : candidates) {
-            if (Files.isExecutable(Path.of(candidate))) {
-                return candidate;
-            }
         }
         return null;
     }

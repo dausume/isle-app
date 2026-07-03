@@ -5,8 +5,8 @@ package org.islemesh.app;
  * JavaFX Application subclasses cannot be the main class in a
  * shaded/fat JAR without the JavaFX runtime on the module path.
  */
-public class IsleAppLauncher {
+public class IsleManagerAppLauncher {
     public static void main(String[] args) {
-        IsleApp.main(args);
+        IsleManagerApp.main(args);
     }
 }
