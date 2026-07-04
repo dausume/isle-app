@@ -15,6 +15,7 @@ import javafx.scene.control.ButtonType;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -37,14 +38,36 @@ public class AppsViewController {
         loadApps();
     }
 
+    /**
+     * Two data sources, merged by app name:
+     *   - `isle agent list-apps`  -> apps currently ON the mesh (running/registered).
+     *   - `isle app installed`    -> apps whose .deb is installed on this node (may be down).
+     * An app installed via a .deb carries a `pkg` (its isle-app-<pkg> lifecycle wrapper);
+     * that's what lets the GUI bring it up/down. Running-but-not-.deb apps have no pkg and
+     * only offer Open + De-register.
+     */
     private void loadApps() {
         appsList.getChildren().clear();
 
-        String json = runListApps();
-        System.out.println("[AppsView] isle agent list-apps returned: " + json);
+        List<AppInfo> running = parseAppsJson(runListApps());
+        for (AppInfo a : running) a.running = true;
 
-        List<AppInfo> apps = parseAppsJson(json);
-        System.out.println("[AppsView] Parsed " + apps.size() + " app(s)");
+        List<AppInfo> installed = parseInstalledJson(runInstalledApps());
+
+        LinkedHashMap<String, AppInfo> byName = new LinkedHashMap<>();
+        for (AppInfo a : running) byName.put(a.name, a);
+        for (AppInfo ins : installed) {
+            AppInfo r = byName.get(ins.name);
+            if (r != null) {
+                // running AND installed via .deb -> expose its wrapper so we can Bring Down
+                if (r.pkg.isEmpty()) r.pkg = ins.pkg;
+            } else {
+                byName.put(ins.name, ins); // installed but down
+            }
+        }
+        List<AppInfo> apps = new ArrayList<>(byName.values());
+        System.out.println("[AppsView] " + running.size() + " running, " + installed.size()
+            + " installed, " + apps.size() + " total");
 
         if (apps.isEmpty()) {
             emptyLabel.setVisible(true);
@@ -64,11 +87,27 @@ public class AppsViewController {
     }
 
     private String runListApps() {
+        return runCliCapture("[]", "agent", "list-apps");
+    }
+
+    private String runInstalledApps() {
+        String out = runCliCapture("[]", "app", "installed", "--json");
+        // `installed` prints a human line when there are none; keep only the JSON array.
+        int a = out.indexOf('['), b = out.lastIndexOf(']');
+        return (a >= 0 && b >= a) ? out.substring(a, b + 1) : "[]";
+    }
+
+    /** Run an isle CLI command and return its stdout, or `fallback` on any failure. */
+    private String runCliCapture(String fallback, String... args) {
         try {
             String islePath = IsleConfig.findIsleCli();
-            if (islePath == null) return "[]";
+            if (islePath == null) return fallback;
 
-            ProcessBuilder pb = new ProcessBuilder(islePath, "agent", "list-apps");
+            List<String> cmd = new ArrayList<>();
+            cmd.add(islePath);
+            for (String a : args) cmd.add(a);
+
+            ProcessBuilder pb = new ProcessBuilder(cmd);
             pb.redirectErrorStream(true);
             Process process = pb.start();
 
@@ -82,14 +121,15 @@ public class AppsViewController {
             process.waitFor();
             return sb.toString();
         } catch (Exception e) {
-            System.err.println("[AppsView] list-apps failed: " + e.getMessage());
-            return "[]";
+            System.err.println("[AppsView] cli capture failed: " + e.getMessage());
+            return fallback;
         }
     }
 
     /**
      * Run an isle CLI action (e.g. agent unregister) and refresh the app list.
-     * Mirrors runListApps(); blocking on the FX thread like loadApps() does.
+     * Mirrors runListApps(); blocking on the FX thread like loadApps() does. Fine for
+     * fast actions (unregister); slow lifecycle actions use runRaw() off-thread instead.
      */
     private void runIsleAction(String actionLabel, String... args) {
         try {
@@ -117,6 +157,39 @@ public class AppsViewController {
     }
 
     /**
+     * Run an arbitrary command (a per-app lifecycle wrapper `isle-app-<pkg> up|down`, or
+     * `pkexec dpkg -r <pkg>`) OFF the FX thread — these can take minutes (image build /
+     * polkit prompt) and must not freeze the UI. Refresh the list on the FX thread when done.
+     */
+    private void runRaw(String label, String... command) {
+        Thread t = new Thread(() -> {
+            try {
+                ProcessBuilder pb = new ProcessBuilder(command);
+                pb.redirectErrorStream(true);
+                Process process = pb.start();
+                try (var reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        System.out.println("[AppsView][" + label + "] " + line);
+                    }
+                }
+                process.waitFor();
+            } catch (Exception e) {
+                System.err.println("[AppsView] " + label + " failed: " + e.getMessage());
+            }
+            javafx.application.Platform.runLater(this::loadApps);
+        });
+        t.setDaemon(true);
+        t.start();
+    }
+
+    private void confirmThen(String message, Runnable action) {
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION, message, ButtonType.OK, ButtonType.CANCEL);
+        confirm.setHeaderText(null);
+        confirm.showAndWait().filter(r -> r == ButtonType.OK).ifPresent(r -> action.run());
+    }
+
+    /**
      * Minimal JSON array parser — extracts app objects from the isle agent list-apps output.
      * Avoids adding a JSON library dependency; uses regex on the known flat structure.
      */
@@ -140,6 +213,33 @@ public class AppsViewController {
             app.updatedAt = extractString(block, "updated_at");
             app.modes = extractStringArray(block, "modes");
             app.services = extractServices(block);
+            apps.add(app);
+        }
+        return apps;
+    }
+
+    /**
+     * Parse `isle app installed --json` — a flat array of
+     * {name,domain,port,protocol,pkg}. These are installed-but-(maybe)-down apps.
+     */
+    private List<AppInfo> parseInstalledJson(String json) {
+        List<AppInfo> apps = new ArrayList<>();
+        if (json == null) return apps;
+        json = json.trim();
+        if (json.equals("[]") || json.isEmpty()) return apps;
+        if (json.startsWith("[")) json = json.substring(1);
+        if (json.endsWith("]")) json = json.substring(0, json.length() - 1);
+
+        for (String block : splitJsonObjects(json)) {
+            AppInfo app = new AppInfo();
+            app.name = extractString(block, "name");
+            app.domain = extractString(block, "domain");
+            app.protocol = extractString(block, "protocol");
+            app.pkg = extractString(block, "pkg");
+            // port may be quoted or bare
+            Pattern pp = Pattern.compile("\"port\"\\s*:\\s*\"?(\\d+)\"?");
+            Matcher pm = pp.matcher(block);
+            app.port = pm.find() ? pm.group(1) : "";
             apps.add(app);
         }
         return apps;
@@ -218,46 +318,74 @@ public class AppsViewController {
         VBox card = new VBox(6);
         card.getStyleClass().add("app-card");
 
-        // Header: name + domain + open button
+        // Header: name + status + state-aware actions
         HBox header = new HBox(10);
         header.getStyleClass().add("app-card-header");
 
         Label nameLabel = new Label(app.name);
         nameLabel.getStyleClass().add("app-name");
 
-        Hyperlink domainLink = new Hyperlink(app.domain);
-        domainLink.getStyleClass().add("app-domain-link");
-        String appUrl = "https://" + app.domain;
-        domainLink.setOnAction(e -> {
-            System.out.println("[AppsView] Domain link clicked: " + appUrl);
-            openUrl(appUrl);
-        });
+        Label statusBadge = new Label(app.running ? "running" : "installed");
+        statusBadge.getStyleClass().addAll("mode-badge", app.running ? "mode-isle" : "mode-local");
 
-        Button openBtn = new Button("Open");
-        openBtn.getStyleClass().addAll("btn-small", "btn-primary");
-        openBtn.setOnAction(e -> {
-            System.out.println("[AppsView] Open button clicked: " + appUrl);
-            openUrl(appUrl);
-        });
+        header.getChildren().addAll(nameLabel, statusBadge);
 
-        // De-register: take the app off the mesh (name-addressable, works today).
-        // Containers keep running; the app just leaves the isle registry/DNS.
-        // NOTE: bring-up / bring-down / uninstall from the GUI await name-addressable
-        // CLI verbs (isle app up|down|uninstall <name>) — those operate on a project
-        // dir today, so they aren't GUI-drivable yet. Tracked in docs/REVAMP-PLAN.md.
-        Button deregBtn = new Button("De-register");
-        deregBtn.getStyleClass().addAll("btn-small", "btn-danger");
-        deregBtn.setOnAction(e -> {
-            Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
+        if (app.running) {
+            String appUrl = "https://" + app.domain;
+
+            Hyperlink domainLink = new Hyperlink(app.domain);
+            domainLink.getStyleClass().add("app-domain-link");
+            domainLink.setOnAction(e -> openUrl(appUrl));
+
+            Button openBtn = new Button("Open");
+            openBtn.getStyleClass().addAll("btn-small", "btn-primary");
+            openBtn.setOnAction(e -> openUrl(appUrl));
+
+            header.getChildren().addAll(domainLink, openBtn);
+
+            // Bring Down: only when we know the app's lifecycle wrapper (installed via .deb).
+            // Stops containers + de-registers, leaving the app installed (down).
+            if (!app.pkg.isEmpty()) {
+                Button downBtn = new Button("Bring Down");
+                downBtn.getStyleClass().addAll("btn-small", "btn-secondary");
+                downBtn.setOnAction(e -> confirmThen(
+                    "Bring '" + app.name + "' down? Containers stop and it leaves the mesh "
+                        + "(stays installed).",
+                    () -> runRaw("down", app.pkg, "down")));
+                header.getChildren().add(downBtn);
+            }
+
+            // De-register: take the app off the mesh without stopping containers.
+            Button deregBtn = new Button("De-register");
+            deregBtn.getStyleClass().addAll("btn-small", "btn-danger");
+            deregBtn.setOnAction(e -> confirmThen(
                 "De-register '" + app.name + "' from the mesh? Containers keep running; "
                     + "the app leaves the isle (registry + .isle/.local).",
-                ButtonType.OK, ButtonType.CANCEL);
-            confirm.setHeaderText(null);
-            confirm.showAndWait().filter(r -> r == ButtonType.OK).ifPresent(r ->
-                runIsleAction("deregister", "agent", "unregister", "--name", app.name));
-        });
+                () -> runIsleAction("deregister", "agent", "unregister", "--name", app.name)));
+            header.getChildren().add(deregBtn);
 
-        header.getChildren().addAll(nameLabel, domainLink, openBtn, deregBtn);
+        } else {
+            // Installed but down: offer Bring Up + Uninstall.
+            Label domainLabel = new Label(app.domain);
+            domainLabel.getStyleClass().add("app-domain-link");
+            header.getChildren().add(domainLabel);
+
+            if (!app.pkg.isEmpty()) {
+                Button upBtn = new Button("Bring Up");
+                upBtn.getStyleClass().addAll("btn-small", "btn-primary");
+                upBtn.setOnAction(e -> runRaw("up", app.pkg, "up"));
+
+                Button uninstallBtn = new Button("Uninstall");
+                uninstallBtn.getStyleClass().addAll("btn-small", "btn-danger");
+                uninstallBtn.setOnAction(e -> confirmThen(
+                    "Uninstall '" + app.name + "' entirely? Removes the app package from "
+                        + "this node (brings it down + de-registers first).",
+                    () -> runRaw("uninstall", "pkexec", "dpkg", "-r", app.pkg)));
+
+                header.getChildren().addAll(upBtn, uninstallBtn);
+            }
+        }
+
         card.getChildren().add(header);
 
         // Modes
@@ -278,7 +406,7 @@ public class AppsViewController {
             card.getChildren().add(modesRow);
         }
 
-        // Services
+        // Services (running apps expose these via list-apps)
         if (!app.services.isEmpty()) {
             Label servicesHeader = new Label("Services:");
             servicesHeader.getStyleClass().add("app-detail-key");
@@ -307,6 +435,11 @@ public class AppsViewController {
 
                 card.getChildren().add(svcRow);
             }
+        } else if (!app.running && !app.port.isEmpty()) {
+            // Installed-down apps have no live services; show the recorded endpoint.
+            Label detail = new Label("Serves :" + app.port + " (" + app.protocol + ") when up");
+            detail.getStyleClass().add("service-detail");
+            card.getChildren().add(detail);
         }
 
         // Updated at
@@ -360,6 +493,11 @@ public class AppsViewController {
         String updatedAt = "";
         List<String> modes = List.of();
         List<ServiceInfo> services = List.of();
+        // lifecycle state (installed-app layer)
+        boolean running = false;
+        String pkg = "";        // isle-app-<pkg> wrapper command, if installed via .deb
+        String port = "";       // recorded endpoint for installed-down apps
+        String protocol = "";
     }
 
     private static class ServiceInfo {
