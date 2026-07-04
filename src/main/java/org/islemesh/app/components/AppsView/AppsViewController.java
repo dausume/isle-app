@@ -9,6 +9,8 @@ import javafx.scene.layout.VBox;
 
 import javafx.scene.control.Button;
 import javafx.scene.control.Hyperlink;
+import javafx.scene.control.Alert;
+import javafx.scene.control.ButtonType;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -83,6 +85,35 @@ public class AppsViewController {
             System.err.println("[AppsView] list-apps failed: " + e.getMessage());
             return "[]";
         }
+    }
+
+    /**
+     * Run an isle CLI action (e.g. agent unregister) and refresh the app list.
+     * Mirrors runListApps(); blocking on the FX thread like loadApps() does.
+     */
+    private void runIsleAction(String actionLabel, String... args) {
+        try {
+            String islePath = IsleConfig.findIsleCli();
+            if (islePath == null) return;
+
+            List<String> cmd = new ArrayList<>();
+            cmd.add(islePath);
+            for (String a : args) cmd.add(a);
+
+            ProcessBuilder pb = new ProcessBuilder(cmd);
+            pb.redirectErrorStream(true);
+            Process process = pb.start();
+            try (var reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    System.out.println("[AppsView][" + actionLabel + "] " + line);
+                }
+            }
+            process.waitFor();
+        } catch (Exception e) {
+            System.err.println("[AppsView] " + actionLabel + " failed: " + e.getMessage());
+        }
+        loadApps();
     }
 
     /**
@@ -209,7 +240,24 @@ public class AppsViewController {
             openUrl(appUrl);
         });
 
-        header.getChildren().addAll(nameLabel, domainLink, openBtn);
+        // De-register: take the app off the mesh (name-addressable, works today).
+        // Containers keep running; the app just leaves the isle registry/DNS.
+        // NOTE: bring-up / bring-down / uninstall from the GUI await name-addressable
+        // CLI verbs (isle app up|down|uninstall <name>) — those operate on a project
+        // dir today, so they aren't GUI-drivable yet. Tracked in docs/REVAMP-PLAN.md.
+        Button deregBtn = new Button("De-register");
+        deregBtn.getStyleClass().addAll("btn-small", "btn-danger");
+        deregBtn.setOnAction(e -> {
+            Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
+                "De-register '" + app.name + "' from the mesh? Containers keep running; "
+                    + "the app leaves the isle (registry + .isle/.local).",
+                ButtonType.OK, ButtonType.CANCEL);
+            confirm.setHeaderText(null);
+            confirm.showAndWait().filter(r -> r == ButtonType.OK).ifPresent(r ->
+                runIsleAction("deregister", "agent", "unregister", "--name", app.name));
+        });
+
+        header.getChildren().addAll(nameLabel, domainLink, openBtn, deregBtn);
         card.getChildren().add(header);
 
         // Modes
