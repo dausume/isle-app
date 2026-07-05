@@ -11,6 +11,7 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Hyperlink;
 import javafx.scene.control.Alert;
 import javafx.scene.control.ButtonType;
+import javafx.scene.control.ComboBox;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -61,6 +62,7 @@ public class AppsViewController {
             if (r != null) {
                 // running AND installed via .deb -> expose its wrapper so we can Bring Down
                 if (r.pkg.isEmpty()) r.pkg = ins.pkg;
+                if (r.availabilityMode.isEmpty()) r.availabilityMode = ins.availabilityMode;
             } else {
                 byName.put(ins.name, ins); // installed but down
             }
@@ -236,6 +238,7 @@ public class AppsViewController {
             app.domain = extractString(block, "domain");
             app.protocol = extractString(block, "protocol");
             app.pkg = extractString(block, "pkg");
+            app.availabilityMode = extractString(block, "availability_mode");
             // port may be quoted or bare
             Pattern pp = Pattern.compile("\"port\"\\s*:\\s*\"?(\\d+)\"?");
             Matcher pm = pp.matcher(block);
@@ -386,6 +389,25 @@ public class AppsViewController {
             }
         }
 
+        // Availability mode control — CLI+app parity: drives `isle app mode`.
+        if (!app.pkg.isEmpty()) {
+            String curMode = app.availabilityMode.isEmpty() ? "always-available" : app.availabilityMode;
+            Label modeKey = new Label("mode:");
+            modeKey.getStyleClass().add("app-detail-key");
+            ComboBox<String> modeBox = new ComboBox<>();
+            modeBox.getItems().addAll("always-available", "on-demand", "scheduled",
+                "presence-gated", "replicated", "manual");
+            modeBox.setValue(curMode);
+            modeBox.getStyleClass().add("mode-select");
+            modeBox.setOnAction(e -> {
+                String sel = modeBox.getValue();
+                if (sel != null && !sel.equals(curMode)) {
+                    runRaw("mode", "pkexec", "isle", "app", "mode", app.name, sel);
+                }
+            });
+            header.getChildren().addAll(modeKey, modeBox);
+        }
+
         card.getChildren().add(header);
 
         // Modes
@@ -498,6 +520,7 @@ public class AppsViewController {
         String pkg = "";        // isle-app-<pkg> wrapper command, if installed via .deb
         String port = "";       // recorded endpoint for installed-down apps
         String protocol = "";
+        String availabilityMode = ""; // always-available (default) | on-demand | scheduled | ...
     }
 
     private static class ServiceInfo {
