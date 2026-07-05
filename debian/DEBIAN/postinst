@@ -12,7 +12,14 @@ ISLE_CLI_LEGACY=/usr/bin/isle              # older location to clean up
 
 if [ -f "$ISLE_CLI_BUNDLE" ]; then
     chmod 755 "$ISLE_CLI_BUNDLE" 2>/dev/null || true
-    cur=$(readlink -f "$ISLE_CLI_LINK" 2>/dev/null || true)
+    # readlink -f prints the path even when it does NOT exist (exit 0), which would
+    # wrongly look like a dev install on a CLEAN machine and skip installing the CLI.
+    # Guard on existence first: absent link -> cur="" -> install branch.
+    if [ -e "$ISLE_CLI_LINK" ] || [ -L "$ISLE_CLI_LINK" ]; then
+        cur=$(readlink -f "$ISLE_CLI_LINK" 2>/dev/null || true)
+    else
+        cur=""
+    fi
     case "$cur" in
         ""|/usr/share/isle-mesh/*)
             # Not installed, or already ours → point at the bundle.
